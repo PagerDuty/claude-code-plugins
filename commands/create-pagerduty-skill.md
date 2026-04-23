@@ -122,10 +122,15 @@ If "n": ask what to adjust.
 
 ### Step 6: Quick Optional Fields
 
-**Examples:**
-Ask once: "Want to add a usage example? (y/n)"
+**Examples (trigger conditions/prompts):**
+Ask once: "Want to add examples of when to invoke this skill? (y/n)"
 
-If yes: "Describe a specific scenario" → format it for them → done. Don't offer to add more unless they ask.
+If yes: "What conditions or user prompts should trigger this skill? For example:
+- 'Invoke this skill when alert custom details contain an issue_runbook key'
+- 'Use this when the user asks to fetch a runbook'
+- 'Trigger during initial triage if X condition is present'"
+
+Take their input and format as a concise list. Keep it short - 2-3 examples maximum.
 
 **Metadata:**
 Auto-detect author from git, then ask:
