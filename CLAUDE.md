@@ -87,15 +87,20 @@ The `create-pagerduty-skill.md` command provides an interactive workflow for cre
 
 1. **Pre-flight checks**: Uses `ToolSearch` to verify PagerDuty Advance MCP is available before proceeding. Fails explicitly with setup instructions if unavailable.
 2. **Mode selection**: Supports both creating new skills and updating existing skills
-3. **Full replace awareness**: UPDATE mode fetches current skill first to preserve all fields (update_skill_tool is a full replacement operation)
-4. **API constraints**: Validates name format (kebab-case, max 60 chars), description (max 1024 chars), and instructions (max 5000 tokens)
-5. **Agent type mapping**: Uses API format ("sre", "insights", "shift") not local format ("sre_agent")
-6. **Skill limit handling**: Max 5 skills per (account, agent_type) pair - prompts user to update or delete when limit reached
-7. **Immediate deployment**: Skills are available immediately after API call (no S3 upload needed)
+3. **Scope selection**: REQUIRED - asks user to choose between "account" (shared/team-level) or "user" (personal/individual) scope
+4. **Full replace awareness**: UPDATE mode fetches current skill first to preserve all fields (update_skill_tool is a full replacement operation)
+5. **API constraints**: Validates name format (kebab-case, max 60 chars), description (max 1024 chars), and instructions (max 5000 tokens)
+6. **SRE Agent only**: Currently only the SRE Agent supports skills - agent_type is always "sre"
+7. **Skill limit handling**: Account scope allows 50 skills per agent, user scope allows 25 - prompts user to update or delete when limit reached
+8. **Scope immutability**: Scope and name cannot be changed after creation (must delete and recreate to change scope)
+9. **Immediate deployment**: Skills are available immediately after API call (no S3 upload needed)
 
 **Critical patterns:**
 - Never proceed without MCP access - no silent degradation
-- Always validate name uniqueness for CREATE mode via `list_skills_tool`
+- Always hard-code agent_type to "sre" (only SRE Agent supports skills currently)
+- Always ask for scope before any operations - scope is required for all API calls
+- Same skill name can exist in both scopes independently - identity is (agent, scope, name)
+- Always validate name uniqueness within the chosen scope via `list_skills_tool`
 - Estimate token count for instructions (chars / 4 ≈ tokens) and warn at 90% of limit
 - For UPDATE mode, fetch current skill and pre-fill all prompts with existing values
 - Optional JSON backup only on user request to avoid repository clutter

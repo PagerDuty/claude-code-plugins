@@ -41,11 +41,15 @@ You are creating or updating a PagerDuty Skill for AI agents. Your role is to ex
 
 Skills are managed via the PagerDuty Advance MCP API with these constraints:
 
-- **agent_type**: Must be `"sre"`, `"insights"`, or `"shift"` (NOT `"sre_agent"`)
-- **name**: kebab-case, max 60 chars, unique per (account, agent_type)
+- **agent_type**: Always `"sre"` (only SRE Agent supports skills currently)
+- **scope**: REQUIRED - `"account"` (shared, team-level) or `"user"` (personal, individual)
+- **name**: kebab-case, max 60 chars, unique per (agent, scope) - same name can exist in both scopes
 - **description**: max 1024 chars
 - **instructions**: max 5000 tokens total (entire skill document)
-- **limit**: Max 5 skills per (account, agent_type) pair
+- **limits**: 
+  - Account scope: Max 50 skills per agent
+  - User scope: Max 25 skills per agent
+- **immutable fields**: scope and name cannot be changed after creation (must delete and recreate)
 
 **Validation rules:**
 - Name format: `^[a-z0-9]+(-[a-z0-9]+)*$` (kebab-case only)
@@ -64,6 +68,8 @@ A good PagerDuty Skill should be:
 
 Keep the interview SHORT and NATURAL. Don't over-question. Ask 2-3 clarifying questions maximum, then draft comprehensive instructions yourself.
 
+**Your role**: You are the translator between the user's natural language and agent-optimized skill definitions. The user describes what they want; YOU synthesize it into structured, agent-friendly instructions, descriptions, and examples.
+
 ### Step 1: Mode Selection
 
 First, determine whether to create a new skill or update an existing one.
@@ -79,55 +85,58 @@ What would you like to do?
 (1/2)
 ```
 
-Store the mode as `create` or `update` and proceed to the appropriate workflow.
+Store the mode as `create` or `update` and proceed to Step 2.
 
-### Step 2: Skill Selection (UPDATE mode only)
+### Step 2: Scope Selection
+
+Ask the user to choose the scope:
+
+```
+Is this a personal skill or a shared team skill?
+1. Personal (visible only to you)
+2. Shared (visible to everyone in your PagerDuty account)
+
+(1/2)
+```
+
+Map response to scope:
+- 1 → `"user"`
+- 2 → `"account"`
+
+**Important**: The same skill name can exist in both scopes independently. Identity is `(agent, scope, name)`.
+
+### Step 3: Skill Selection (UPDATE mode only)
 
 **For UPDATE mode, follow these steps:**
 
-**2a. Choose Agent Type:**
-```
-Which agent type is this skill for?
-1. SRE Agent (incident response & diagnosis)
-2. Insights Agent (analytics & reporting)
-3. Shift Agent (on-call & scheduling)
+**3a. List Existing Skills:**
 
-(1/2/3)
-```
-
-Map response to agent_type:
-- 1 → `"sre"`
-- 2 → `"insights"`
-- 3 → `"shift"`
-
-**2b. List Existing Skills:**
-
-Call `list_skills_tool` with the chosen agent_type.
+Call `list_skills_tool` with agent_type="sre" and the chosen scope.
 
 If no skills exist:
 ```
-No skills found for {agent_type} agent. Let's create one instead.
+No {scope} skills found. Let's create one instead.
 ```
-Switch to CREATE mode and continue to Step 3.
+Switch to CREATE mode and continue to Step 4.
 
 If skills exist, display them:
 ```
-Existing skills for {agent_type} agent:
+Existing skills:
 
 1. fetch-issue-type-runbook
    Description: Use this skill to fetch issue specific runbooks
-   Metadata: version=1.0, author=mmayp@pagerduty, team=signal
+   Metadata: version=1.0, author=user@example.com, team=platform
 
 2. diagnose-database-slowness
    Description: Automated diagnosis of database performance issues
-   Metadata: version=2.1, author=db-team@pagerduty, team=platform
+   Metadata: version=2.1, author=user@example.com, team=infrastructure
 
 Which skill would you like to update? (enter number or name)
 ```
 
-**2c. Fetch Current Skill:**
+**3b. Fetch Current Skill:**
 
-Use `get_skill_tool` with agent_type and skill_name to retrieve the full skill document.
+Use `get_skill_tool` with agent_type="sre", scope, and skill_name to retrieve the full skill document.
 
 Display current configuration:
 ```
@@ -149,15 +158,17 @@ If "n": ask if they want to pick a different skill or exit.
 
 Store all current values for use in interview prompts.
 
-### Step 3: Agent Type Selection (CREATE mode only)
+### Step 4: Check Skill Limit (CREATE mode only)
 
 **For CREATE mode:**
 
-Same as Step 2a, but after selection check skill limit:
+Call `list_skills_tool` with agent_type="sre" and the chosen scope. Count results and check against limit:
+- Account scope: limit is 50
+- User scope: limit is 25
 
-Call `list_skills_tool` and count results. If count >= 5:
+If limit reached:
 ```
-⚠️ Limit reached: {agent_type} agent already has 5 skills (the maximum).
+⚠️ Limit reached: You already have {count} {scope} skills (the maximum for {scope} scope).
 
 Existing skills:
 1. skill-name-1
@@ -168,10 +179,10 @@ You can update an existing skill or delete one first.
 Would you like to switch to update mode? (y/n)
 ```
 
-If yes, switch to UPDATE mode and go to Step 2b.
+If yes, switch to UPDATE mode and go to Step 3a.
 If no, exit with instructions to delete a skill first.
 
-### Step 4: Understand the Workflow
+### Step 5: Understand the Workflow
 
 Start with:
 ```
@@ -190,7 +201,7 @@ What should the agent do? Describe the task or workflow you want to automate dur
 - The goal (what problem does it solve?)
 - The basic workflow (what steps are involved?)
 
-### Step 5: Ask 1-2 Clarifying Questions
+### Step 6: Ask 1-2 Clarifying Questions
 
 Based on their description, ask ONLY the most important clarifying questions. Examples:
 - "Should the agent do this automatically during triage, or only when asked?"
@@ -204,7 +215,7 @@ Based on their description, ask ONLY the most important clarifying questions. Ex
 
 Keep it to 1-2 questions maximum.
 
-### Step 6: Draft Complete Instructions
+### Step 7: Draft Complete Instructions
 
 Now YOU synthesize everything into structured instructions. Translate their natural language into:
 - When to use the skill (trigger conditions)
@@ -256,7 +267,7 @@ If > 4500 tokens (90% of 5000 limit), warn:
 Consider condensing to avoid hitting the API limit.
 ```
 
-### Step 7: Suggest a Name (CREATE mode) or Show Name (UPDATE mode)
+### Step 8: Suggest a Name (CREATE mode) or Show Name (UPDATE mode)
 
 **For CREATE mode:**
 
@@ -275,8 +286,9 @@ Which do you prefer, or would you like a different name?
 - Max 60 characters (not 64)
 - Kebab-case format: `^[a-z0-9]+(-[a-z0-9]+)*$`
 - Action-oriented and descriptive
-- Check uniqueness: call `list_skills_tool` and verify name doesn't exist
-- If name exists, show error and ask for different name
+- Check uniqueness: call `list_skills_tool` with the chosen scope and verify name doesn't exist
+- If name exists in that scope, show error and ask for different name
+- Note: Same name can exist in both scopes, but must be unique within the chosen scope
 
 **For UPDATE mode:**
 
@@ -286,9 +298,9 @@ Current name: {current_name}
 Note: Skill names cannot be changed after creation. The name will remain "{current_name}".
 ```
 
-### Step 8: Draft Description
+### Step 9: Draft Description
 
-Create a 1-2 sentence description from the workflow:
+YOU create a 1-2 sentence description from the workflow. Don't ask the user to write it - interpret their workflow and draft an agent-optimized description yourself.
 
 ```
 {if UPDATE: Current description: "{current_description}"}
@@ -304,10 +316,12 @@ Good? (y/n)
 **Validation:**
 - Max 1024 characters
 - Should explain what it does, when it triggers, and what problem it solves
+- Written for the agent to understand, not just human-readable
+- Focus on trigger conditions and outcomes
 
-If "n": ask what to adjust.
+If "n": ask what to adjust and revise.
 
-### Step 9: Quick Optional Fields
+### Step 10: Quick Optional Fields
 
 **Examples (trigger conditions/prompts):**
 
@@ -320,15 +334,24 @@ Want to {add/update/keep} examples of when to invoke this skill? (y/n{/keep if U
 
 If yes: 
 ```
-What conditions or user prompts should trigger this skill? For example:
-- 'Invoke this skill when alert custom details contain an issue_runbook key'
-- 'Use this when the user asks to fetch a runbook'
-- 'Trigger during initial triage if X condition is present'
-
-Provide 2-3 examples (one per line):
+When should the agent invoke this skill? Describe the conditions or situations.
 ```
 
-Take their input and format as array of strings. Keep it short - 2-3 examples maximum.
+Listen to their response, then YOU translate it into 2-3 clear, agent-friendly trigger conditions. Format them as:
+- Specific conditions in alert data: "Invoke when alert custom details contain {key}: {value}"
+- User prompts: "Use when the user asks to {action}"  
+- Automatic triggers: "Trigger during {phase} if {condition}"
+
+Show your draft and confirm:
+```
+Based on that, here are the trigger examples:
+
+1. {example_1}
+2. {example_2}
+3. {example_3}
+
+Good? (y/n)
+```
 
 If "keep" (UPDATE mode): preserve current examples.
 
@@ -357,7 +380,7 @@ Confirm these values? (y/n)
 - Suggest minor increment: 1.0 → 1.1, 1.9 → 1.10, 2.3 → 2.4
 - Allow user to override with custom version
 
-### Step 10: Final Preview
+### Step 11: Final Preview
 
 Display complete skill structure:
 
@@ -365,7 +388,7 @@ Display complete skill structure:
 {if CREATE: Here's the complete skill:}
 {if UPDATE: Here are your changes:}
 
-Agent Type: {agent_type}
+Scope: {scope} ({if account: "shared with your team" | if user: "personal to you"})
 Name: {name}
 Description: {description}
 
@@ -392,7 +415,8 @@ Metadata:
 If user types "preview-json", show the exact API payload:
 ```json
 {
-  "agent_type": "{agent_type}",
+  "agent_type": "sre",
+  "scope": "{scope}",
   "name": "{name}",
   "description": "{description}",
   "instructions": "{instructions}",
@@ -404,7 +428,7 @@ If user types "preview-json", show the exact API payload:
 
 Then re-ask: "Ready to proceed? (y/n)"
 
-### Step 11: API Execution
+### Step 12: API Execution
 
 **For CREATE mode:**
 
@@ -413,7 +437,8 @@ Creating skill via PagerDuty API...
 ```
 
 Call `mcp__pagerduty-advance-mcp-__create_skill_tool` with parameters:
-- `agent_type`: "sre" | "insights" | "shift"
+- `agent_type`: "sre"
+- `scope`: "account" or "user" (from Step 2)
 - `name`: kebab-case string
 - `description`: string
 - `instructions`: string  
@@ -429,7 +454,8 @@ Note: This is a full replacement. All fields will be updated.
 ```
 
 Call `mcp__pagerduty-advance-mcp-__update_skill_tool` with parameters:
-- `agent_type`: "sre" | "insights" | "shift"
+- `agent_type`: "sre"
+- `scope`: "account" or "user" (from Step 2)
 - `skill_name`: immutable skill name (required)
 - `description`: string
 - `instructions`: string
@@ -443,7 +469,7 @@ Handle these common API errors:
 
 1. **Name collision (CREATE only):**
    ```
-   ❌ Error: Skill "{name}" already exists for {agent_type} agent.
+   ❌ Error: Skill "{name}" already exists in {scope} scope.
    
    Choose a different name or switch to update mode.
    Would you like to update the existing skill instead? (y/n)
@@ -451,14 +477,14 @@ Handle these common API errors:
 
 2. **Skill not found (UPDATE only):**
    ```
-   ❌ Error: Skill "{name}" not found.
+   ❌ Error: Skill "{name}" not found in {scope} scope.
    
    The skill may have been deleted. Would you like to create it instead? (y/n)
    ```
 
 3. **Skill limit reached (CREATE only):**
    ```
-   ❌ Error: Maximum of 5 skills per agent reached for {agent_type}.
+   ❌ Error: Maximum of {50 for account | 25 for user} {scope} skills reached.
    
    Existing skills: [list from list_skills_tool]
    
@@ -486,18 +512,19 @@ Handle these common API errors:
    Check your API key and try again.
    ```
 
-### Step 12: Success
+### Step 13: Success
 
 On successful API call:
 
 ```
 ✅ Skill {created/updated}: {skill-name}
 
-Your skill is now available to the {agent_type} agent!
+Scope: {scope} ({if account: "shared with your team" | if user: "personal to you"})
+Your skill is now available to the SRE Agent!
 
 Next steps:
 1. The skill is immediately available in the PagerDuty platform
-2. Test the skill in an incident or via the {agent_type} agent interface
+2. Test the skill in an incident or via the SRE Agent interface
 3. Monitor skill usage and iterate as needed
 
 {if CREATE: 
@@ -519,7 +546,8 @@ If user says yes, write `{skill-name}.json` in current directory:
   "description": "{description}",
   "instructions": "{instructions}",
   "examples": {examples or []},
-  "agent_type": "{agent_type}",
+  "agent_type": "sre",
+  "scope": "{scope}",
   "connectors": [],
   "metadata": {metadata}
 }
@@ -528,7 +556,7 @@ If user says yes, write `{skill-name}.json` in current directory:
 ## Key Principles
 
 1. **Keep it short** - 2-3 clarifying questions max, then YOU draft everything
-2. **Translate for them** - They describe in natural language, you convert to tool-specific steps
+2. **Translate everything** - They describe in natural language, you convert ALL fields (description, instructions, examples) into agent-optimized format
 3. **Use defaults** - Don't ask about every edge case, use reasonable error handling
 4. **Show your work** - Display drafts, get confirmation, iterate
 5. **Be efficient** - If they say "yes" or "fine", move on quickly
