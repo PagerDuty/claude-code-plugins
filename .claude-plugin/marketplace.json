@@ -9,7 +9,7 @@
             "name": "pagerduty",
             "source": "./",
             "description": "Pre-commit risk assessment using PagerDuty incident history, change event correlation, and git diff analysis.",
-            "version": "1.0.2",
+            "version": "1.1.0",
             "author": {
                 "name": "PagerDuty"
             }
