@@ -9,7 +9,7 @@ This is a Claude Code plugin marketplace for PagerDuty integrations. It contains
 **Current plugins:**
 - `pagerduty`: Includes multiple commands:
   - Pre-commit risk scoring using PagerDuty incident history and git diff analysis
-  - PagerDuty skill creation and management for AI agents
+  - PagerDuty skill creation and management for AI agents (Early Access)
 
 ## Repository Structure
 
@@ -82,6 +82,8 @@ The `pre-commit-risk-scoring.md` command demonstrates key patterns:
 6. **Structured output**: Use consistent formatting with clear sections, risk scores, and actionable recommendations
 
 ### Skill Creation Command (create-pagerduty-skill)
+
+**Note: PagerDuty Skills is currently in Early Access. Visit https://www.pagerduty.com/early-access/ to request access.**
 
 The `create-pagerduty-skill.md` command provides an interactive workflow for creating and updating PagerDuty skills via API:
 

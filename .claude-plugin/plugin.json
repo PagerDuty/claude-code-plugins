@@ -1,6 +1,6 @@
 {
     "name": "pagerduty",
-    "description": "A collection of Claude Code plugins developed by PagerDuty to enhance code quality and security through risk scoring and incident correlation.",
+    "description": "A collection of Claude Code plugins developed by PagerDuty for pre-commit risk assessment and PagerDuty skill creation for AI agents (Early Access).",
     "version": "1.1.0",
     "author": {
         "name": "PagerDuty"

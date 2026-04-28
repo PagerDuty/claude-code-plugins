@@ -27,11 +27,14 @@ You are creating or updating a PagerDuty Skill for AI agents. Your role is to ex
    
    This command requires the PagerDuty Advance MCP server to create and manage skills via API.
    
-   To fix:
-   1. Ensure PagerDuty Advance MCP is configured in .mcp.json
-   2. Set your PAGERDUTY_API_KEY in the environment (.claude/settings.local.json or ~/.claude/settings.json)
-   3. Restart Claude Code
-   4. Re-run /pagerduty:create-pagerduty-skill
+   Note: PagerDuty Skills is currently in Early Access (EA).
+   
+   To get access:
+   1. Visit https://www.pagerduty.com/early-access/ to request EA access
+   2. Once approved, configure PagerDuty Advance MCP in .mcp.json
+   3. Set your PAGERDUTY_API_KEY in the environment (.claude/settings.local.json or ~/.claude/settings.json)
+   4. Restart Claude Code
+   5. Re-run /pagerduty:create-pagerduty-skill
    
    For setup help, see: https://github.com/PagerDuty/pagerduty-advance-mcp
    ```
@@ -506,10 +509,11 @@ Handle these common API errors:
    
    Possible causes:
    - PAGERDUTY_API_KEY not set or invalid
+   - Account does not have Early Access to PagerDuty Skills (visit https://www.pagerduty.com/early-access/)
    - Network connectivity issues
    - PagerDuty service outage
    
-   Check your API key and try again.
+   Check your API key and Early Access status, then try again.
    ```
 
 ### Step 13: Success

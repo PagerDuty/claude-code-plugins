@@ -8,7 +8,7 @@
         {
             "name": "pagerduty",
             "source": "./",
-            "description": "Pre-commit risk assessment using PagerDuty incident history, change event correlation, and git diff analysis.",
+            "description": "Pre-commit risk assessment using PagerDuty incident history, and PagerDuty skill creation for AI agents (Early Access).",
             "version": "1.1.0",
             "author": {
                 "name": "PagerDuty"
