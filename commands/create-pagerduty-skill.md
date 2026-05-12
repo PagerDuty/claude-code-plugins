@@ -30,13 +30,12 @@ You are creating or updating a PagerDuty Skill for AI agents. Your role is to ex
    Note: PagerDuty Skills is currently in Early Access (EA).
    
    To get access:
-   1. Visit https://www.pagerduty.com/early-access/ to request EA access
-   2. Once approved, configure PagerDuty Advance MCP in .mcp.json
-   3. Set your PAGERDUTY_API_KEY in the environment (.claude/settings.local.json or ~/.claude/settings.json)
-   4. Restart Claude Code
-   5. Re-run /pagerduty:create-pagerduty-skill
-   
-   For setup help, see: https://github.com/PagerDuty/pagerduty-advance-mcp
+   1. Request PagerDuty Skills EA access: https://www.pagerduty.com/early-access/
+   2. Request PagerDuty Advance MCP/API EA access: https://support.pagerduty.com/main/changelog/pagerduty-advance-mcpapi-support-is-now-in-early-access-for-advance-customers
+   3. Once approved, configure PagerDuty Advance MCP in .mcp.json
+   4. Set your PAGERDUTY_API_KEY in the environment (.claude/settings.local.json or ~/.claude/settings.json)
+   5. Restart Claude Code
+   6. Re-run /pagerduty:create-pagerduty-skill
    ```
 3. Do NOT proceed without MCP access - no silent degradation
 
@@ -509,7 +508,9 @@ Handle these common API errors:
    
    Possible causes:
    - PAGERDUTY_API_KEY not set or invalid
-   - Account does not have Early Access to PagerDuty Skills (visit https://www.pagerduty.com/early-access/)
+   - Account does not have Early Access (requires both PagerDuty Skills EA and Advance MCP/API EA)
+     - Skills EA: https://www.pagerduty.com/early-access/
+     - Advance MCP/API EA: https://support.pagerduty.com/main/changelog/pagerduty-advance-mcpapi-support-is-now-in-early-access-for-advance-customers
    - Network connectivity issues
    - PagerDuty service outage
    
