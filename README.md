@@ -9,6 +9,7 @@ PagerDuty's open source [Claude Code plugins](https://code.claude.com/docs/en/pl
 | Plugin                                                    | Description                                                                                                  |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | pre-commit-risk-scoring | Pre-commit risk assessment using PagerDuty incident history, change event correlation, and git diff analysis  |
+| create-pagerduty-skill | Create and manage PagerDuty skills for AI agents through guided interview (Early Access)  |
 
 ## Getting started
 
@@ -194,6 +195,56 @@ commands/
 | Server    | Declared in                | Tools used                                                                             |
 | --------- | -------------------------- | -------------------------------------------------------------------------------------- |
 | PagerDuty | `.mcp.json` (plugin-local) | `get_service`, `list_services`, `list_incidents`, `list_incident_notes`, `list_service_change_events` |
+
+## Plugin: Create PagerDuty Skill
+
+**Early Access**: This feature requires enrollment in two Early Access programs:
+- [PagerDuty Skills EA](https://www.pagerduty.com/early-access/)
+- [PagerDuty Advance MCP/API EA](https://support.pagerduty.com/main/changelog/pagerduty-advance-mcpapi-support-is-now-in-early-access-for-advance-customers)
+
+A plugin that provides an interactive workflow for creating and updating PagerDuty skills for AI agents. Skills allow you to encode your team's domain knowledge and operational procedures into structured instructions that the SRE Agent can follow during incident response.
+
+### Usage
+
+Launch the interactive skill builder:
+
+```bash
+/pagerduty:create-pagerduty-skill
+```
+
+The command guides you through:
+
+1. **Mode selection**: Create new or update existing skill
+2. **Scope selection**: Personal (user) or shared (account-level)
+3. **Workflow definition**: What should the agent do?
+4. **Skill configuration**: Name, description, instructions, examples, and metadata
+5. **API deployment**: Immediate deployment to PagerDuty platform
+
+### Features
+
+- **Interactive interview**: Short, natural conversation extracts your domain knowledge
+- **Two scope types**:
+  - **Personal (user)**: Private skills visible only to you (max 25 per agent)
+  - **Shared (account)**: Team-level skills visible to everyone (max 50 per agent)
+- **Update mode**: Fetch existing skills and modify them (full replacement)
+- **Validation**: Name format (kebab-case), length limits, token estimation
+- **Integration references**: Automatically includes available SRE Agent integrations (Confluence, GitHub, Grafana, Datadog, etc.)
+- **Immediate deployment**: Skills are available in the PagerDuty platform right after creation
+
+### Skill structure
+
+Skills consist of:
+- **Name**: kebab-case identifier (max 60 chars, unique per agent/scope)
+- **Description**: What the skill does (max 1024 chars)
+- **Instructions**: Step-by-step execution guide (max 5000 tokens)
+- **Examples**: Trigger conditions for automatic invocation
+- **Metadata**: Version, author, team, type (experimental/production)
+
+### MCP servers
+
+| Server    | Declared in                | Tools used                                                                             |
+| --------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| PagerDuty Advance MCP | `.mcp.json` (plugin-local) | `create_skill_tool`, `get_skill_tool`, `list_skills_tool`, `update_skill_tool` |
 
 ## Contributing
 
