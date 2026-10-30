@@ -77,9 +77,10 @@ The `pre-commit-risk-scoring.md` command demonstrates key patterns:
 1. **Tool availability checks**: Always verify required MCP tools are loaded via `ToolSearch` before proceeding
 2. **Graceful degradation**: Do NOT silently degrade when required tools are missing - fail explicitly with actionable error messages
 3. **Service resolution precedence**: Explicit arguments > cached config > catalog annotations > auto-detection > user prompt
-4. **Configuration persistence**: Cache resolved service mappings to `.claude/risk-config.json` to avoid repeated lookups, but NEVER cache when an explicit argument override is provided
+4. **Configuration persistence**: Cache resolved service mappings to `.pagerduty/pagerduty-risk-config.json` to avoid repeated lookups, but NEVER cache when an explicit argument override is provided
 5. **Parallel execution**: Independent API calls (active incidents + incident history + change events) and git operations should run in parallel
 6. **Structured output**: Use consistent formatting with clear sections, risk scores, and actionable recommendations
+7. **Two assessment modes**: Uncommitted changes by default; `--branch` (or a clean working tree on a feature branch) assesses `<base>...HEAD`. Base branch resolution: open PR (GitHub MCP, then `gh`) > upstream tracking branch > `main`/`master`/`develop` > user prompt
 
 ### Skill Creation Command (create-pagerduty-skill)
 
@@ -112,11 +113,11 @@ The `create-pagerduty-skill.md` command provides an interactive workflow for cre
 When referencing PagerDuty MCP tools in command `allowed-tools` lists, use the full plugin-scoped name:
 
 **Plugin PagerDuty (service/incident operations):**
-- `mcp__plugin_pagerduty_pagerduty__get_service`
-- `mcp__plugin_pagerduty_pagerduty__list_services`
-- `mcp__plugin_pagerduty_pagerduty__list_incidents`
-- `mcp__plugin_pagerduty_pagerduty__list_incident_notes`
-- `mcp__plugin_pagerduty_pagerduty__list_service_change_events`
+- `mcp__plugin_pagerduty_pagerduty__browse_services` (actions: `list`, `get`)
+- `mcp__plugin_pagerduty_pagerduty__browse_incidents` (actions: `list`, `list_notes`)
+- `mcp__plugin_pagerduty_pagerduty__browse_change_events` (action: `list_service`)
+
+These are consolidated tools: each takes a `request` object with an `action` field. List actions return at most 100 records and set `truncated: true` when more exist; page with `offset`.
 
 **PagerDuty Advance MCP (skills management):**
 - `mcp__pagerduty-advance-mcp-__create_skill_tool`
@@ -139,12 +140,12 @@ When referencing PagerDuty MCP tools in command `allowed-tools` lists, use the f
 
 The service resolution follows a strict priority order:
 1. **Explicit argument** (one-time override, not cached)
-2. **Cached config** in `.claude/risk-config.json`
+2. **Cached config** in `.pagerduty/pagerduty-risk-config.json` (legacy `.claude/risk-config.json` is validated and copied to the new location if the new file does not exist)
 3. **Backstage catalog** `catalog-info.yaml` with `pagerduty.com/service-id` annotation
 4. **Auto-detection** from repository name
 5. **User prompt** as last resort
 
-**Critical**: When validating a Backstage service ID, call `get_service` with the literal ID. Do NOT pass UUIDs to `list_services` - the API returns a 502 error.
+**Critical**: When validating a Backstage service ID, call `browse_services` with action `get` and the literal ID. Do NOT pass IDs as the `query` of a `list` action - the API returns a 502 error.
 
 ### Incident Fetching Strategy
 
@@ -153,7 +154,7 @@ The pre-commit command makes parallel calls for:
 - Low-urgency incidents (last 90 days)
 - Service change events
 
-The PagerDuty incidents API caps results at 1000 per call. When exactly 1000 incidents are returned, note the history is partial and report the actual date range covered.
+`browse_incidents` returns at most 100 incidents per call; page with `offset` while `truncated` is true, up to 1000 incidents. When the 1000 cap is hit, note the history is partial and report the actual date range covered.
 
 ### Risk Scoring Model
 
