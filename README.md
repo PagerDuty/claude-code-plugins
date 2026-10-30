@@ -148,20 +148,33 @@ With uncommitted changes in your working tree:
 /pagerduty:pre-commit-risk-scoring
 ```
 
+To assess every commit on your current branch against its base branch, as a reviewer would see it:
+
+```bash
+/pagerduty:pre-commit-risk-scoring --branch
+```
+
+If there are no uncommitted changes and you're on a feature branch, the command switches to branch mode automatically. After an assessment of uncommitted changes, it offers to assess the whole branch too.
+
+In branch mode, the base branch is detected from the open pull request (via the GitHub MCP server if you have it installed, otherwise the `gh` CLI), then the upstream tracking branch, then `main`, `master` or `develop`. If none of these work, the command asks you.
+
 On first run, the plugin resolves your repository to a PagerDuty service through a fallback chain:
 
 1. Explicit argument passed at invocation (one-time override, not cached)
-2. Cached config in `.claude/risk-config.json`
+2. Cached config in `.pagerduty/pagerduty-risk-config.json`
 3. Backstage `catalog-info.yaml` annotation (`pagerduty.com/service-id`)
 4. Auto-detection by matching the repository name against PagerDuty services
 5. Manual input via interactive prompt
 
-The resolved mapping is saved to `.claude/risk-config.json` for subsequent runs.
+The resolved mapping is saved to `.pagerduty/pagerduty-risk-config.json` for subsequent runs.
 
-You can pass a service name as a one-time override. This takes highest priority, skipping cache and auto-detection, and will not update `.claude/risk-config.json`:
+If you used an earlier version of the plugin, a mapping saved in `.claude/risk-config.json` is copied to the new location on the next run. The old file is left in place, and you can delete it.
+
+You can pass a service name as a one-time override. This takes highest priority, skipping cache and auto-detection, and will not update `.pagerduty/pagerduty-risk-config.json`. It can be combined with `--branch`:
 
 ```bash
 /pagerduty:pre-commit-risk-scoring my-service-name
+/pagerduty:pre-commit-risk-scoring --branch my-service-name
 ```
 
 ### Output
@@ -177,7 +190,7 @@ The command produces a structured risk assessment containing:
 
 ### Changing the mapped service
 
-Delete `.claude/risk-config.json` and re-run `/pagerduty:pre-commit-risk-scoring` to pick a different service.
+Delete `.pagerduty/pagerduty-risk-config.json` and re-run `/pagerduty:pre-commit-risk-scoring` to pick a different service.
 
 ### Plugin structure
 
@@ -194,7 +207,8 @@ commands/
 
 | Server    | Declared in                | Tools used                                                                             |
 | --------- | -------------------------- | -------------------------------------------------------------------------------------- |
-| PagerDuty | `.mcp.json` (plugin-local) | `get_service`, `list_services`, `list_incidents`, `list_incident_notes`, `list_service_change_events` |
+| PagerDuty | `.mcp.json` (plugin-local) | `browse_services` (`list`, `get`), `browse_incidents` (`list`, `list_notes`), `browse_change_events` (`list_service`) |
+| GitHub (optional) | Your own Claude Code config | `list_pull_requests`, to find the base branch in branch mode. Falls back to the `gh` CLI and git if unavailable |
 
 ## Plugin: Create PagerDuty Skill
 
