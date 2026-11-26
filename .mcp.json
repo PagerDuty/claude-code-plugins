@@ -1,9 +1,6 @@
 {
   "pagerduty": {
     "type": "http",
-    "url": "https://mcp.pagerduty.com/mcp",
-    "headers": {
-      "Authorization": "Token token=${PAGERDUTY_API_KEY}"
-    }
+    "url": "https://mcp.pagerduty.com/mcp?tool_groups=full-tools,ai-agents"
   }
 }

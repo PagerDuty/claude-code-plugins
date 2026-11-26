@@ -8,8 +8,8 @@
         {
             "name": "pagerduty",
             "source": "./",
-            "description": "Pre-commit risk assessment using PagerDuty incident history, and PagerDuty skill creation for AI agents (Early Access).",
-            "version": "1.2.0",
+            "description": "Pre-commit risk assessment using PagerDuty incident history, incident investigation, and on-call handoffs. A PagerDuty account admin must install the app once (see README).",
+            "version": "2.0.0",
             "author": {
                 "name": "PagerDuty"
             }
