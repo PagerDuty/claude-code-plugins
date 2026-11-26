@@ -4,12 +4,39 @@
 
 PagerDuty's open source [Claude Code plugins](https://code.claude.com/docs/en/plugins) that bring operational intelligence into your development workflow.
 
+## Before you start: one-time admin step
+
+> **A PagerDuty account admin must install the Claude Code app once per PagerDuty account.** Until they do, nobody in the account can use this plugin.
+>
+> **[Install the Claude Code app in PagerDuty](https://app.pagerduty.com/oauth-apps/PU4FJQH)** (requires an account admin)
+
+If the app is not installed, sign-in fails *after* you log in, with an error saying the app is not installed in the account. Send the link above to your PagerDuty admin, then try again.
+
+With the admin step you do not need a client ID or client secret. See the [CIMD clients guide](https://docs.pagerduty.com/ai-automation/advance/pagerduty-mcp-server/cimd-clients) for details.
+
+### Can't get the app installed?
+
+Register your own OAuth app in PagerDuty and connect with its client ID and secret instead.
+
+1. Register an OAuth app in PagerDuty with redirect URL `http://localhost:8080/callback`.
+2. Add the server with your client ID and secret:
+
+   ```bash
+   MCP_CLIENT_SECRET=<client-secret> claude mcp add-json pagerduty \
+     '{"type":"http","url":"https://mcp.pagerduty.com/mcp?tool_groups=full-tools,ai-agents","oauth":{"clientId":"<client-id>","callbackPort":8080}}' --client-secret
+   ```
+
+3. Run `/mcp`, select `pagerduty`, and complete the browser sign-in.
+
+See [Use an OAuth client ID and client secret](https://docs.pagerduty.com/ai-automation/advance/pagerduty-mcp-server#use-an-oauth-client-id-and-client-secret). Never put the client secret in a file in your repository.
+
 ## Available plugins
 
 | Plugin                                                    | Description                                                                                                  |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | pre-commit-risk-scoring | Pre-commit risk assessment using PagerDuty incident history, change event correlation, and git diff analysis  |
-| create-pagerduty-skill | Create and manage PagerDuty skills for AI agents through guided interview (Early Access)  |
+| investigate | Investigate a PagerDuty incident with the PagerDuty SRE Agent |
+| on-call-handoff | Summarize incidents and on-call state for an on-call handoff |
 
 ## Getting started
 
@@ -39,45 +66,23 @@ Or install a plugin directly:
 /plugin install pagerduty@pagerduty-claude-code-plugins
 ```
 
-### 3. Configure API key
+### 3. Sign in to PagerDuty
 
-The plugins bundle a PagerDuty MCP server that needs an API token. Git commit history is read directly from the local repository.
+The plugin bundles one MCP server, `pagerduty`, pointing at the PagerDuty-hosted [MCP server](https://docs.pagerduty.com/ai-automation/advance/pagerduty-mcp-server) (`https://mcp.pagerduty.com/mcp?tool_groups=full-tools,ai-agents`). Git commit history is read directly from the local repository.
 
-**Option A: Per-repo via `.claude/settings.local.json`** (recommended)
+Once your admin has completed the [one-time admin step](#before-you-start-one-time-admin-step), run `/mcp`, select `pagerduty`, and complete the browser sign-in.
 
-This file is gitignored by default, so secrets stay local:
+## Troubleshooting
 
-```json
-{
-  "env": {
-    "PAGERDUTY_API_KEY": "your-pagerduty-token"
-  }
-}
-```
+| Symptom | Fix |
+| --- | --- |
+| Sign-in fails after login with an error that the app is not installed in the account | A PagerDuty account admin must [install the Claude Code app](https://app.pagerduty.com/oauth-apps/PU4FJQH) once, then sign in again from `/mcp`. |
+| `401` / unauthorized responses | Your session expired or was revoked. Run `/mcp`, select `pagerduty`, and re-authenticate. |
+| `429` rate limit | The PagerDuty API is rate limiting requests. Wait a minute and retry. |
 
-If the file already exists, merge the `env` key into it.
+### Restricting scopes
 
-**Option B: Global via `~/.claude/settings.json`**
-
-This applies the key to all projects:
-
-```json
-{
-  "env": {
-    "PAGERDUTY_API_KEY": "your-pagerduty-token"
-  }
-}
-```
-
-If the file already exists, merge the `env` key into it.
-
-> **Note:** You may need to restart VS Code for environment variable changes to take effect.
-
-#### Where to get the token
-
-PagerDuty > User Profile > User Settings > API Access > Create API User Token.
-
-Restart Claude Code after setting the key so the MCP server picks it up.
+The Claude Code app requests all scopes. If your organization wants narrower scopes, register your own Scoped OAuth app and connect with it as described in [Can't get the app installed?](#cant-get-the-app-installed).
 
 ## Set up for your team
 
@@ -199,7 +204,9 @@ Delete `.pagerduty/pagerduty-risk-config.json` and re-run `/pagerduty:pre-commit
   marketplace.json            # Marketplace registry
   plugin.json                 # Plugin metadata
 commands/
-  pre-commit-risk-scoring.md  # Slash command definition
+  pre-commit-risk-scoring.md  # Slash command definitions
+  investigate.md
+  on-call-handoff.md
 .mcp.json                     # PagerDuty MCP server declaration
 ```
 
@@ -209,56 +216,6 @@ commands/
 | --------- | -------------------------- | -------------------------------------------------------------------------------------- |
 | PagerDuty | `.mcp.json` (plugin-local) | `browse_services` (`list`, `get`), `browse_incidents` (`list`, `list_notes`), `browse_change_events` (`list_service`) |
 | GitHub (optional) | Your own Claude Code config | `list_pull_requests`, to find the base branch in branch mode. Falls back to the `gh` CLI and git if unavailable |
-
-## Plugin: Create PagerDuty Skill
-
-**Early Access**: This feature requires enrollment in two Early Access programs:
-- [PagerDuty Skills EA](https://www.pagerduty.com/early-access/)
-- [PagerDuty Advance MCP/API EA](https://support.pagerduty.com/main/changelog/pagerduty-advance-mcpapi-support-is-now-in-early-access-for-advance-customers)
-
-A plugin that provides an interactive workflow for creating and updating PagerDuty skills for AI agents. Skills allow you to encode your team's domain knowledge and operational procedures into structured instructions that the SRE Agent can follow during incident response.
-
-### Usage
-
-Launch the interactive skill builder:
-
-```bash
-/pagerduty:create-pagerduty-skill
-```
-
-The command guides you through:
-
-1. **Mode selection**: Create new or update existing skill
-2. **Scope selection**: Personal (user) or shared (account-level)
-3. **Workflow definition**: What should the agent do?
-4. **Skill configuration**: Name, description, instructions, examples, and metadata
-5. **API deployment**: Immediate deployment to PagerDuty platform
-
-### Features
-
-- **Interactive interview**: Short, natural conversation extracts your domain knowledge
-- **Two scope types**:
-  - **Personal (user)**: Private skills visible only to you (max 25 per agent)
-  - **Shared (account)**: Team-level skills visible to everyone (max 50 per agent)
-- **Update mode**: Fetch existing skills and modify them (full replacement)
-- **Validation**: Name format (kebab-case), length limits, token estimation
-- **Integration references**: Automatically includes available SRE Agent integrations (Confluence, GitHub, Grafana, Datadog, etc.)
-- **Immediate deployment**: Skills are available in the PagerDuty platform right after creation
-
-### Skill structure
-
-Skills consist of:
-- **Name**: kebab-case identifier (max 60 chars, unique per agent/scope)
-- **Description**: What the skill does (max 1024 chars)
-- **Instructions**: Step-by-step execution guide (max 5000 tokens)
-- **Examples**: Trigger conditions for automatic invocation
-- **Metadata**: Version, author, team, type (experimental/production)
-
-### MCP servers
-
-| Server    | Declared in                | Tools used                                                                             |
-| --------- | -------------------------- | -------------------------------------------------------------------------------------- |
-| PagerDuty Advance MCP | `.mcp.json` (plugin-local) | `create_skill_tool`, `get_skill_tool`, `list_skills_tool`, `update_skill_tool` |
 
 ## Contributing
 

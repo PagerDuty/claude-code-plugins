@@ -34,9 +34,16 @@ If ToolSearch returns no PagerDuty tools, or the connectivity call fails, STOP a
 PagerDuty MCP server is not available. This plugin requires it.
 
 To fix:
-1. Set the PAGERDUTY_API_KEY environment variable with a valid PagerDuty API token
-2. Restart Claude Code so the plugin's MCP server configuration is loaded
+1. Ask a PagerDuty account admin to install the Claude Code app once for your account (one-time step): https://app.pagerduty.com/oauth-apps/PU4FJQH
+   If it is not installed, sign-in fails after login with an error that the app is not installed in the account.
+   Can't get the app installed? Register your own OAuth app in PagerDuty and connect with its client ID and secret instead:
+   - Register an OAuth app with redirect URL http://localhost:8080/callback
+   - Run: MCP_CLIENT_SECRET=<client-secret> claude mcp add-json pagerduty '{"type":"http","url":"https://mcp.pagerduty.com/mcp?tool_groups=full-tools,ai-agents","oauth":{"clientId":"<client-id>","callbackPort":8080}}' --client-secret
+   - Then sign in from /mcp
+   Details: https://docs.pagerduty.com/ai-automation/advance/pagerduty-mcp-server#use-an-oauth-client-id-and-client-secret
+2. Run /mcp, select "pagerduty", and complete the browser sign-in
 3. Re-run /pagerduty:pre-commit-risk-scoring
+Docs: https://docs.pagerduty.com/ai-automation/advance/pagerduty-mcp-server/cimd-clients
 ```
 
 Do NOT proceed without PagerDuty MCP. Do NOT fall back to a degraded assessment. The entire point of this plugin is PagerDuty incident correlation.

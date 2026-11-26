@@ -9,7 +9,8 @@ This is a Claude Code plugin marketplace for PagerDuty integrations. It contains
 **Current plugins:**
 - `pagerduty`: Includes multiple commands:
   - Pre-commit risk scoring using PagerDuty incident history and git diff analysis
-  - PagerDuty skill creation and management for AI agents (Early Access)
+  - Incident investigation with the PagerDuty SRE Agent
+  - On-call handoff summaries
 
 ## Repository Structure
 
@@ -19,7 +20,8 @@ This is a Claude Code plugin marketplace for PagerDuty integrations. It contains
   plugin.json            # Plugin metadata (name, version, author)
 commands/                # Plugin slash commands
   pre-commit-risk-scoring.md   # Risk assessment command
-  create-pagerduty-skill.md    # Skill creation/management command
+  investigate.md               # SRE Agent incident investigation command
+  on-call-handoff.md           # On-call handoff summary command
 .mcp.json               # PagerDuty MCP server configuration
 ```
 
@@ -45,7 +47,14 @@ Commands are markdown files in the `commands/` directory with frontmatter:
 The markdown body contains the full command prompt that gets executed when the slash command is invoked.
 
 ### MCP Server Integration
-`.mcp.json` declares external MCP servers the plugins depend on. The PagerDuty server is an HTTP MCP server that requires `PAGERDUTY_API_KEY` to be set in the environment (via `.claude/settings.local.json` or `~/.claude/settings.json`).
+`.mcp.json` declares a single HTTP MCP server, `pagerduty`, at `https://mcp.pagerduty.com/mcp?tool_groups=full-tools,ai-agents`. It authenticates with OAuth using CIMD (Client ID Metadata Document): Claude Code is a CIMD client, so users need no client ID or secret, and `.mcp.json` and `plugin.json` carry no auth configuration.
+
+- A PagerDuty account admin must install the Claude Code app once per account: https://app.pagerduty.com/oauth-apps/PU4FJQH. Otherwise sign-in fails after login with an "app not installed in the account" error.
+- Users sign in from `/mcp`.
+- If the app cannot be installed, users can register their own OAuth app and connect with its client ID and secret instead (documented in the README under "Can't get the app installed?"). Every command's error offers this alternative too.
+- Orgs that want narrower scopes can register their own Scoped OAuth app instead (documented in the README under "Restricting scopes").
+
+Every command's "MCP unavailable" error must include the admin install link and the docs link: https://docs.pagerduty.com/ai-automation/advance/pagerduty-mcp-server/cimd-clients
 
 ## Development Workflow
 
@@ -55,7 +64,7 @@ After modifying plugin files, test the changes by installing the marketplace fro
 
 ```bash
 # Add your local clone as a marketplace
-/plugin marketplace add /Users/mmayo/repos/claude-code-plugins
+/plugin marketplace add /path/to/claude-code-plugins
 
 # Install the plugin from your local marketplace
 /plugin install pagerduty@pagerduty-claude-code-plugins
@@ -77,54 +86,26 @@ The `pre-commit-risk-scoring.md` command demonstrates key patterns:
 1. **Tool availability checks**: Always verify required MCP tools are loaded via `ToolSearch` before proceeding
 2. **Graceful degradation**: Do NOT silently degrade when required tools are missing - fail explicitly with actionable error messages
 3. **Service resolution precedence**: Explicit arguments > cached config > catalog annotations > auto-detection > user prompt
-4. **Configuration persistence**: Cache resolved service mappings to `.pagerduty/pagerduty-risk-config.json` to avoid repeated lookups, but NEVER cache when an explicit argument override is provided
+4. **Configuration persistence**: Cache resolved service mappings to `.pagerduty/pagerduty-risk-config.json` (a legacy `.claude/risk-config.json` is migrated on first read) to avoid repeated lookups, but NEVER cache when an explicit argument override is provided
 5. **Parallel execution**: Independent API calls (active incidents + incident history + change events) and git operations should run in parallel
 6. **Structured output**: Use consistent formatting with clear sections, risk scores, and actionable recommendations
-7. **Two assessment modes**: Uncommitted changes by default; `--branch` (or a clean working tree on a feature branch) assesses `<base>...HEAD`. Base branch resolution: open PR (GitHub MCP, then `gh`) > upstream tracking branch > `main`/`master`/`develop` > user prompt
-
-### Skill Creation Command (create-pagerduty-skill)
-
-**Note: PagerDuty Skills is currently in Early Access. Visit https://www.pagerduty.com/early-access/ to request access.**
-
-The `create-pagerduty-skill.md` command provides an interactive workflow for creating and updating PagerDuty skills via API:
-
-1. **Pre-flight checks**: Uses `ToolSearch` to verify PagerDuty Advance MCP is available before proceeding. Fails explicitly with setup instructions if unavailable.
-2. **Mode selection**: Supports both creating new skills and updating existing skills
-3. **Scope selection**: REQUIRED - asks user to choose between "account" (shared/team-level) or "user" (personal/individual) scope
-4. **Full replace awareness**: UPDATE mode fetches current skill first to preserve all fields (update_skill_tool is a full replacement operation)
-5. **API constraints**: Validates name format (kebab-case, max 60 chars), description (max 1024 chars), and instructions (max 5000 tokens)
-6. **SRE Agent only**: Currently only the SRE Agent supports skills - agent_type is always "sre"
-7. **Skill limit handling**: Account scope allows 50 skills per agent, user scope allows 25 - prompts user to update or delete when limit reached
-8. **Scope immutability**: Scope and name cannot be changed after creation (must delete and recreate to change scope)
-9. **Immediate deployment**: Skills are available immediately after API call (no S3 upload needed)
-
-**Critical patterns:**
-- Never proceed without MCP access - no silent degradation
-- Always hard-code agent_type to "sre" (only SRE Agent supports skills currently)
-- Always ask for scope before any operations - scope is required for all API calls
-- Same skill name can exist in both scopes independently - identity is (agent, scope, name)
-- Always validate name uniqueness within the chosen scope via `list_skills_tool`
-- Estimate token count for instructions (chars / 4 ≈ tokens) and warn at 90% of limit
-- For UPDATE mode, fetch current skill and pre-fill all prompts with existing values
-- Optional JSON backup only on user request to avoid repository clutter
 
 ### PagerDuty MCP Tool Names
 
-When referencing PagerDuty MCP tools in command `allowed-tools` lists, use the full plugin-scoped name:
+When referencing PagerDuty MCP tools in command `allowed-tools` lists, use the full plugin-scoped name. There is one server, `pagerduty`, so every tool is `mcp__plugin_pagerduty_pagerduty__<tool>`.
 
-**Plugin PagerDuty (service/incident operations):**
-- `mcp__plugin_pagerduty_pagerduty__browse_services` (actions: `list`, `get`)
-- `mcp__plugin_pagerduty_pagerduty__browse_incidents` (actions: `list`, `list_notes`)
-- `mcp__plugin_pagerduty_pagerduty__browse_change_events` (action: `list_service`)
+**Consolidated tools** take an `action` parameter (arguments go in a `request` object):
+- Read: `browse_incidents` (`list`, `get`, `list_notes`, `list_alerts`, `get_alert`, `context`, `list_change_events`, `list_workflows`, `get_workflow`), `browse_services` (`list`, `get`), `browse_change_events` (`list`, `get`, `list_service`), `browse_users` (`get`, `list`), `browse_escalation_policies` (`list`, `get`), `browse_schedules` (`list`, `get`, `list_users`, `list_oncalls`, ...), `browse_teams`, `browse_activity`, `browse_alert_grouping`, `browse_event_orchestrations`, `browse_status_pages`
+- Write: `manage_incidents`, `manage_services`, `manage_schedules`, `manage_teams`, `manage_alert_grouping`, `manage_event_orchestrations`, `manage_status_pages`
 
-These are consolidated tools: each takes a `request` object with an `action` field. List actions return at most 100 records and set `truncated: true` when more exist; page with `offset`.
+Tools used by the commands, for example:
+- `mcp__plugin_pagerduty_pagerduty__browse_services` (`list`, `get`)
+- `mcp__plugin_pagerduty_pagerduty__browse_incidents` (`list`, `list_notes`)
+- `mcp__plugin_pagerduty_pagerduty__browse_change_events` (`list_service`)
 
-**PagerDuty Advance MCP (skills management):**
-- `mcp__pagerduty-advance-mcp-__create_skill_tool`
-- `mcp__pagerduty-advance-mcp-__get_skill_tool`
-- `mcp__pagerduty-advance-mcp-__list_skills_tool`
-- `mcp__pagerduty-advance-mcp-__update_skill_tool`
-- `mcp__pagerduty-advance-mcp-__delete_skill_tool`
+**Advance tools (same server, `ai-agents` tool group):**
+- `mcp__plugin_pagerduty_pagerduty__paige_sre_agent_send_message` (returns `conversation_id`; AI Actions cost confirmation required once per conversation)
+- `mcp__plugin_pagerduty_pagerduty__paige_sre_agent_get_response` (poll until `is_complete`)
 
 ## Contributing
 
@@ -140,12 +121,12 @@ These are consolidated tools: each takes a `request` object with an `action` fie
 
 The service resolution follows a strict priority order:
 1. **Explicit argument** (one-time override, not cached)
-2. **Cached config** in `.pagerduty/pagerduty-risk-config.json` (legacy `.claude/risk-config.json` is validated and copied to the new location if the new file does not exist)
+2. **Cached config** in `.pagerduty/pagerduty-risk-config.json` (legacy `.claude/risk-config.json` is migrated)
 3. **Backstage catalog** `catalog-info.yaml` with `pagerduty.com/service-id` annotation
 4. **Auto-detection** from repository name
 5. **User prompt** as last resort
 
-**Critical**: When validating a Backstage service ID, call `browse_services` with action `get` and the literal ID. Do NOT pass IDs as the `query` of a `list` action - the API returns a 502 error.
+**Critical**: When validating a Backstage service ID, call `browse_services` with action `get` and the literal ID as `service_id`. Do NOT pass IDs as the `query` of a `browse_services` `list` call - the API returns a 502 error.
 
 ### Incident Fetching Strategy
 
@@ -154,7 +135,7 @@ The pre-commit command makes parallel calls for:
 - Low-urgency incidents (last 90 days)
 - Service change events
 
-`browse_incidents` returns at most 100 incidents per call; page with `offset` while `truncated` is true, up to 1000 incidents. When the 1000 cap is hit, note the history is partial and report the actual date range covered.
+`browse_incidents` returns at most 100 incidents per call. When a response has `truncated: true`, page with `offset`. Stop after 1000 incidents; if you stop there, note the history is partial and report the actual date range covered.
 
 ### Risk Scoring Model
 
